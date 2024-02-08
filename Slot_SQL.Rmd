@@ -182,7 +182,7 @@ poolcon_upt <- dbConnect(odbc(), "OAO Cloud DB Staging", timeout = 15)
 
 ## Grouped Table execution
   tryCatch({
-        poolcon_upt <- dbConnect(drv = odbc(), "OAO Cloud DB Staging", timeout = 30)
+        poolcon_upt <- dbConnect(drv = odbc(), "OAO Cloud DB Production", timeout = 30)
         dbBegin(poolcon_upt)
             if(dbExistsTable(poolcon_upt, "AMBULATORY_ACCESS_RAW_FILTERED")){
           dbExecute(poolcon_upt, raw_access_drop) 
