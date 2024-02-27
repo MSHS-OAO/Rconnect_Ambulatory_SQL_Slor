@@ -187,7 +187,7 @@ poolcon_upt <- dbConnect(odbc(), "OAO Cloud DB Staging", timeout = 15)
 
 ## Grouped Table execution
   tryCatch({
-        poolcon_upt <- dbConnect(drv = odbc(), "OAO Cloud DB Production", timeout = 30)
+        poolcon_upt <- dbConnect(drv = odbc(), "OAO Cloud DB Staging", timeout = 30)
         dbBegin(poolcon_upt)
               if(dbExistsTable(poolcon_upt, "AMBULATORY_SLOT_MAPPING")){
           dbExecute(poolcon_upt, slot_mapping_drop) 
