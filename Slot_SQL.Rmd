@@ -211,13 +211,13 @@ poolcon_upt <- dbConnect(odbc(), "OAO Cloud DB Staging", timeout = 15)
           dbExecute(poolcon_upt, slot_mapping_drop) 
               }
           dbExecute(poolcon_upt, slot_mapping) 
-            if(dbExistsTable(poolcon_upt, "AMBULATORY_ACCESS_RAW_FILTERED")){
-          dbExecute(poolcon_upt, raw_access_drop) 
+            if(dbExistsTable(poolcon_upt, "AVAILABILITY_BLOCK_COMBINED")){
+          dbExecute(poolcon_upt, avail_block_combined_drop) 
             }
           dbExecute(poolcon_upt, avail_block_combined_query) 
           dbExecute(poolcon_upt, avail_block_index)
-            if(dbExistsTable(poolcon_upt, "AVAILABILITY_BLOCK_COMBINED")){
-          dbExecute(poolcon_upt, avail_block_combined_drop) 
+            if(dbExistsTable(poolcon_upt, "AMBULATORY_ACCESS_RAW_FILTERED")){
+          dbExecute(poolcon_upt, raw_access_drop) 
             }
           dbExecute(poolcon_upt, raw_access_query) 
           dbExecute(poolcon_upt, raw_access_index)
