@@ -51,7 +51,7 @@ SELECT d.* FROM(
                     DERIVED_STATUS_DESC AS APPT_STATUS, APPT_DTTM, 
                     TRUNC(APPT_DTTM) AS APPT_DATE,
                      TO_CHAR(APPT_DTTM, 'yyyy-mm') AS APPT_MONTH_YEAR,
-                     (APPT_LENGTH) AS APPT_LENGTH_MINS, OVERBOOKED_YN, APPT_MADE_DTTM, APPT_CANC_DTTM
+                     (APPT_LENGTH/60) AS APPT_LENGTH_HOURS, OVERBOOKED_YN, APPT_MADE_DTTM, APPT_CANC_DTTM
                      FROM MV_DM_PATIENT_ACCESS 
                      WHERE APPT_DTTM BETWEEN TO_DATE('{date_1} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
                         AND TO_DATE('{date_2} 23:59:59', 'YYYY-MM-DD HH24:MI:SS'))) a
@@ -78,7 +78,7 @@ raw_access_index <- glue("CREATE index raw_access_index on AMBULATORY_ACCESS_RAW
 access_sched_arived_hours_drop <- glue("DROP TABLE AMBULATORY_ACCESS_SCHED_ARRIVED_HOURS")
 access_sched_arived_hours_quary <- glue("CREATE TABLE AMBULATORY_ACCESS_SCHED_ARRIVED_HOURS AS 
 SELECT a.CAMPUS, a.DEPARTMENT_ID, a.PROV_ID, a.APPT_DATE, a.BLOCK_NAME, a.ORG_BLOCK_NAME,
-sum(a.APPT_LENGTH_MINS) AS SCHEDULED_MINS, sum(b.APPT_LENGTH_MINS) AS ARRIVED_MINS
+sum(a.APPT_LENGTH_HOURS) AS SCHEDULED_HOURS, sum(b.APPT_LENGTH_HOURS) AS ARRIVED_HOURS
 FROM(
     (SELECT * FROM AMBULATORY_ACCESS_RAW_FILTERED WHERE (APPT_STATUS IN ('Arrived', 'No Show', 'Scheduled')) OR 
     (APPT_STATUS IN  ('Canceled', 'Rescheduled', 'Bumped') AND TO_CHAR(APPT_DTTM, 'YYYY-MM-DD') = TO_CHAR(APPT_CANC_DTTM, 'YYYY-MM-DD'))) a
@@ -95,7 +95,7 @@ access_sched_arived_hours_index <- glue("CREATE index access_sched_arived_index 
 availability_raw_filtered_drop <- glue("DROP TABLE AMBULATORY_AVAILABILITY_RAW_FILTERED")
 availability_raw_filtered_quary <- glue("CREATE TABLE AMBULATORY_AVAILABILITY_RAW_FILTERED AS
 SELECT a.DEPARTMENT_ID, a.PROV_NM_WID, a.PROV_ID, a.SLOT_DATE, a.SLOT_MONTH_YEAR, a.BLOCK_NAME, a.ORG_BLOCK_NAME, b.DEPT_SPECIALTY_NAME, b.NPI, b.VISIT_PROV_STAFF_RESOURCE_C, 
-sum(SLOT_LENGTH) AS AVAILABLE_MINS
+sum(SLOT_LENGTH/60) AS AVAILABLE_HOURS
 FROM(
     (SELECT * FROM(
          (SELECT DISTINCT DEPARTMENT_NAME, DEPARTMENT_ID, PROV_NM_WID, PROV_ID,
@@ -117,8 +117,8 @@ availability_raw_index <- glue("CREATE index availability_raw_index on AMBULATOR
 slot_table_drop <- glue("DROP TABLE AMBULATORY_SLOT_TABLE")
 slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                             SELECT f.*, g.holiday, 
-                            h.UNAVAILABLE_MINS, i.HELD_MINS, 
-                            j.PRIVATE_MINS, k.OVERBOOKED_MINS
+                            h.UNAVAILABLE_HOURS, i.HELD_HOURS, 
+                            j.PRIVATE_HOURS, k.OVERBOOKED_HOURS
                             FROM
                             (
                               SELECT e.CAMPUS, e.DEPARTMENT_ID, e.DEPARTMENT, e.CAMPUS_SPECIALTY, c.DEPT_SPECIALTY_NAME, c.NPI,  
@@ -126,10 +126,10 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                               c.PROV_ID, TRIM(TRAILING FROM REGEXP_REPLACE(PROV_NM_WID, '\\[(.*?)\\]', '')) AS Provider,
                               c.SLOT_DATE, c.SLOT_MONTH_YEAR, c.BLOCK_NAME, c.ORG_BLOCK_NAME,
                               SLOT_DATE - (TO_CHAR(SLOT_DATE, 'D') - 1) AS APPT_WEEK, 
-                              c.AVAILABLE_MINS, c.SCHEDULED_MINS, c.ARRIVED_MINS, TO_CHAR(c.SLOT_DATE, 'DY') AS APPT_DAY 
+                              c.AVAILABLE_HOURS, c.SCHEDULED_HOURS, c.ARRIVED_HOURS, TO_CHAR(c.SLOT_DATE, 'DY') AS APPT_DAY 
                               FROM
                               (
-                                SELECT a.*, b.SCHEDULED_MINS, b.ARRIVED_MINS
+                                SELECT a.*, b.SCHEDULED_HOURS, b.ARRIVED_HOURS
                                 FROM
                                 (
                                   SELECT * FROM AMBULATORY_AVAILABILITY_RAW_FILTERED
@@ -152,7 +152,7 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                             LEFT JOIN
                             (
                               SELECT DEPARTMENT_ID, PROV_ID, SLOT_DATE, BLOCK_NAME, ORG_BLOCK_NAME,
-                              SUM(SLOT_LENGTH) AS UNAVAILABLE_MINS
+                              SUM(SLOT_LENGTH/60) AS UNAVAILABLE_HOURS
                               FROM AVAILABILITY_BLOCK_COMBINED 
                               WHERE UNAVAILABLE_RSN_C IS NOT NULL 
                               AND SLOT_DATE BETWEEN TO_DATE('{date_1} 00:00:00', 'YYYY-MM-DD HH24:MI:SS') 
@@ -163,7 +163,7 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                             LEFT JOIN
                             (
                               SELECT DEPARTMENT_ID, PROV_ID, SLOT_DATE, BLOCK_NAME, ORG_BLOCK_NAME,
-                              SUM(SLOT_LENGTH) AS HELD_MINS
+                              SUM(SLOT_LENGTH/60) AS HELD_HOURS
                               FROM AVAILABILITY_BLOCK_COMBINED  
                               WHERE UNAVAILABLE_RSN_C IS NULL 
                               AND TIME_HELD_YN = 'Y'
@@ -175,7 +175,7 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                             LEFT JOIN
                             (
                               SELECT DEPARTMENT_ID, PROV_ID, SLOT_DATE, BLOCK_NAME, ORG_BLOCK_NAME,
-                              SUM(SLOT_LENGTH) AS PRIVATE_MINS
+                              SUM(SLOT_LENGTH/60) AS PRIVATE_HOURS
                               FROM AVAILABILITY_BLOCK_COMBINED 
                               WHERE UNAVAILABLE_RSN_C IS NULL 
                               AND PRIVATE_YN = 'Y'
@@ -187,7 +187,7 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                             LEFT JOIN
                             (
                               SELECT DEPARTMENT_ID, PROV_ID, SLOT_DATE, BLOCK_NAME, ORG_BLOCK_NAME,
-                              SUM(SLOT_LENGTH) AS OVERBOOKED_MINS
+                              SUM(SLOT_LENGTH/60) AS OVERBOOKED_HOURS
                               FROM AVAILABILITY_BLOCK_COMBINED 
                               WHERE UNAVAILABLE_RSN_C IS NULL 
                               AND ORG_OVBK_OPENINGS > 0
@@ -252,4 +252,3 @@ poolcon_upt <- dbConnect(odbc(), "OAO Cloud DB Staging", timeout = 15)
   })
 
 ```
-
