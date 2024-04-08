@@ -60,7 +60,7 @@ raw_access_index <- glue("CREATE index raw_access_index on AMBULATORY_ACCESS_RAW
 ### Create queries for summing scheduled and arrived hours
 access_sched_arived_hours_drop <- glue("DROP TABLE AMBULATORY_ACCESS_SCHED_ARRIVED_HOURS")
 access_sched_arived_hours_quary <- glue("CREATE TABLE AMBULATORY_ACCESS_SCHED_ARRIVED_HOURS AS 
-                           SELECT a.CAMPUS, a.DEPARTMENT_ID, a.DEPARTMENT_NAME, a.PROV_ID, a.PROV_NAME_WID, a.DEPT_SPECIALTY_NAME,                                                        a.APPT_DATE, a.NPI, a.VISIT_PROV_STAFF_RESOURCE_C,
+                           SELECT a.CAMPUS, a.DEPARTMENT_ID, a.DEPARTMENT_NAME, a.PROV_ID, a.PROV_NAME_WID, a.DEPT_SPECIALTY_NAME,                                  a.APPT_DATE, a.NPI, a.VISIT_PROV_STAFF_RESOURCE_C,
                            sum(a.APPT_LENGTH_MINS) AS SCHEDULED_MINS, sum(b.APPT_LENGTH_MINS) AS ARRIVED_MINS
                            FROM 
                            ((SELECT * FROM AMBULATORY_ACCESS_RAW_FILTERED
@@ -96,9 +96,9 @@ availability_access_index <- glue("CREATE index availability_access_index on AMB
 
 overbook_raw_drop <- glue("DROP TABLE AMBULATORY_OVERBOOK_TABLE")
 overbook_raw_query <- glue("CREATE TABLE AMBULATORY_OVERBOOK_TABLE AS
-                           SELECT c.DEPARTMENT_ID, c.PROV_ID, c.SLOT_DATE, sum(SLOT_LENGTH) AS OVERBOOKED_MINS_V2
+                           SELECT c.DEPARTMENT_ID, c.PROV_ID, c.SLOT_DATE, sum(c.SLOT_LENGTH) AS OVERBOOKED_MINS_V2
                            FROM
-                           (SELECT a.*, b.APPT_NUMBER
+                           (SELECT a.*, b.APPT_NUMBER, b.SLOT_LENGTH
                            FROM(
                            (SELECT * FROM AMBULATORY_ACCESS_RAW_FILTERED
                            WHERE (APPT_STATUS IN ('Arrived', 'No Show','Scheduled')) OR
