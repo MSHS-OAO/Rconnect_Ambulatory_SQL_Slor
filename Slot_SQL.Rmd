@@ -94,13 +94,37 @@ availability_raw_query<- glue("CREATE TABLE AMBULATORY_AVAILABILITY_ACCESS_TABLE
 
 availability_access_index <- glue("CREATE index availability_access_index on AMBULATORY_AVAILABILITY_ACCESS_TABLE (SLOT_DATE, DEPARTMENT_ID)")
 
+overbook_raw_drop <- glue("DROP TABLE AMBULATORY_OVERBOOK_TABLE")
+overbook_raw_query <- glue("CREATE TABLE AMBULATORY_OVERBOOK_TABLE AS
+                           SELECT c.DEPARTMENT_ID, c.PROV_ID, c.SLOT_DATE, sum(SLOT_LENGTH) AS OVERBOOKED_MINS_V2
+                           FROM
+                           (SELECT a.*, b.APPT_NUMBER
+                           FROM(
+                           (SELECT * FROM AMBULATORY_ACCESS_RAW_FILTERED
+                           WHERE (APPT_STATUS IN ('Arrived', 'No Show','Scheduled')) OR
+                           (APPT_STATUS IN  ('Canceled', 'Rescheduled', 'Bumped') AND 
+                            TO_CHAR(APPT_DTTM, 'YYYY-MM-DD') = TO_CHAR(APPT_CANC_DTTM, 'YYYY-MM-DD'))) a
+                           LEFT JOIN
+                           (SELECT PAT_ENC_CSN_ID, DEPARTMENT_ID, DEPARTMENT_NAME, PROV_NM_WID, PROV_ID,
+                           SLOT_BEGIN_TIME, SLOT_DATE, SLOT_LENGTH, APPT_NUMBER, UNAVAILABLE_RSN_C
+                           FROM V_AVAILABILITY
+                           WHERE UNAVAILABLE_RSN_C IS NULL) b
+                           ON a.PAT_ENC_CSN_ID = b.PAT_ENC_CSN_ID 
+                           AND a.DEPARTMENT_ID = b.DEPARTMENT_ID
+                           AND a.APPT_DTTM = b.SLOT_BEGIN_TIME)
+                           WHERE APPT_NUMBER IN (2, 3))c
+                           GROUP BY c.DEPARTMENT_ID, c.PROV_ID, c.SLOT_DATE")
+
+overbook_raw_index <- glue("CREATE index overbook_raw_index on AMBULATORY_OVERBOOK_TABLE (SLOT_DATE, DEPARTMENT_ID)")
+
+
 
 ### Combine all final tables and map the campus column
 slot_table_drop <- glue("DROP TABLE AMBULATORY_SLOT_TABLE")
 slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                             SELECT f.*, g.holiday, 
                             h.UNAVAILABLE_MINS, i.HELD_MINS, 
-                            j.PRIVATE_MINS, k.OVERBOOKED_MINS
+                            j.PRIVATE_MINS, k.OVERBOOKED_MINS, l.OVERBOOKED_MINS_V2
                             FROM
                             (
                               SELECT e.CAMPUS, e.DEPARTMENT_ID, e.DEPARTMENT, e.CAMPUS_SPECIALTY, c.NPI,  
@@ -110,7 +134,7 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                               c.AVAILABLE_MINS, c.SCHEDULED_MINS, c.ARRIVED_MINS, TO_CHAR(c.SLOT_DATE, 'DY') AS APPT_DAY 
                               FROM
                               (
-                                SELECT a.*, b.DEPT_SPECIALTY_NAME, b.NPI, b.VISIT_PROV_STAFF_RESOURCE_C, b.SCHEDULED_MINS,                                                                     b.ARRIVED_MINS
+                                SELECT a.*, b.DEPT_SPECIALTY_NAME, b.NPI, b.VISIT_PROV_STAFF_RESOURCE_C, b.SCHEDULED_MINS,                                                                            b.ARRIVED_MINS
                                 FROM
                                 (
                                   SELECT * FROM AMBULATORY_AVAILABILITY_ACCESS_TABLE
@@ -180,6 +204,12 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
                               GROUP BY DEPARTMENT_ID, PROV_ID, SLOT_DATE
                             ) k
                             ON f.DEPARTMENT_ID = k.DEPARTMENT_ID AND f.PROV_ID = k.PROV_ID AND f.SLOT_DATE = k.SLOT_DATE
+                            LEFT JOIN
+                            (
+                            SELECT DEPARTMENT_ID, PROV_ID, SLOT_DATE, OVERBOOKED_MINS_V2
+                            FROM AMBULATORY_OVERBOOK_TABLE
+                            )l
+                            ON f.DEPARTMENT_ID = l.DEPARTMENT_ID AND f.PROV_ID = l.PROV_ID AND f.SLOT_DATE = l.SLOT_DATE
                             ")
 
 slot_table_index <- glue("CREATE index slot_table_index on AMBULATORY_SLOT_TABLE (SLOT_DATE, DEPARTMENT_ID, CAMPUS)")
@@ -210,6 +240,11 @@ poolcon_upt <- dbConnect(odbc(), "OAO Cloud DB Staging", timeout = 15)
             }
           dbExecute(poolcon_upt, availability_raw_query) 
           dbExecute(poolcon_upt, availability_access_index)
+             if(dbExistsTable(poolcon_upt, "AMBULATORY_OVERBOOK_TABLE")){
+          dbExecute(poolcon_upt, overbook_raw_drop) 
+            }
+          dbExecute(poolcon_upt, overbook_raw_query) 
+          dbExecute(poolcon_upt, overbook_raw_index)
           
           if(dbExistsTable(poolcon_upt, "AMBULATORY_SLOT_TABLE")){
           dbExecute(poolcon_upt, slot_table_drop) 
