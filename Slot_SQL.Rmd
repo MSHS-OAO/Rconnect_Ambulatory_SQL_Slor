@@ -141,7 +141,7 @@ overbook_raw_query <- glue("CREATE TABLE AMBULATORY_OVERBOOK_TABLE AS
 overbook_raw_index <- glue("CREATE index overbook_raw_index on AMBULATORY_OVERBOOK_TABLE (SLOT_DATE, DEPARTMENT_ID)")
 
 
-
+### updated with slot hour details
 ### Combine all final tables and map the campus column
 slot_table_drop <- glue("DROP TABLE AMBULATORY_SLOT_TABLE")
 slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
