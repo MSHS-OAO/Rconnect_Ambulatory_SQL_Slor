@@ -15,13 +15,13 @@ library(pool)
 date_1 <- "2021-01-01"
 date_2 <- Sys.Date() %m+% months(6)
 
-#MApping for V_AVAILABILITY
+#Mapping foundation for Campus, Specialty, Department ID, Department Name, Prov ID etc
 slot_mapping_drop <- glue("DROP TABLE AMBULATORY_SLOT_MAPPING")
 slot_mapping <- glue("CREATE TABLE AMBULATORY_SLOT_MAPPING AS 
                      SELECT DISTINCT DEP_RPT_GRP_SEVENTEEN  AS CAMPUS, DEPT_SPECIALTY_NAME AS CAMPUS_SPECIALTY, DEPARTMENT_ID, 
                      DEPARTMENT_NAME AS DEPARTMENT, NPI, VISIT_PROV_STAFF_RESOURCE_C, PROV_ID FROM MV_DM_PATIENT_ACCESS")
 
-###Creating joined v_availability and block tables
+###Creating joined v_availability and block tables and merging org_block_name and block_name to get combined_block_name
 avail_block_without_collapse_drop <- glue("DROP TABLE AVAILABILITY_BLOCK_COMBINED_WITHOUT_COLLAPSE")
 avail_block_without_collapse_query <- glue("CREATE TABLE AVAILABILITY_BLOCK_COMBINED_WITHOUT_COLLAPSE AS
 SELECT DISTINCT DEPARTMENT_ID, DEPARTMENT_NAME, PROV_ID, PROV_NM_WID, SLOT_DATE, SLOT_BEGIN_TIME, SLOT_LENGTH, UNAVAILABLE_RSN_C, 
@@ -48,6 +48,8 @@ WHERE av.SLOT_DATE BETWEEN TO_DATE('{date_1} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
 
 avail_block_without_collapse_index <- glue("CREATE INDEX avail_block_without_collapse_index on AVAILABILITY_BLOCK_COMBINED_WITHOUT_COLLAPSE (SLOT_DATE, DEPARTMENT_ID)")
 
+
+###Creating base table for final slot table to get all combinations of department, prov, slot date and combined block name
 avail_block_grouped_without_collapse_drop <- glue("DROP TABLE AVAILABILITY_BLOCK_GROUPED_WITHOUT_COLLAPSE")
 avail_block_grouped_without_collapse_query <- glue("CREATE TABLE AVAILABILITY_BLOCK_GROUPED_WITHOUT_COLLAPSE AS
                                   SELECT DEPARTMENT_ID, DEPARTMENT_NAME, PROV_ID, PROV_NM_WID, SLOT_DATE, COMBINED_BLOCK_NAME, TO_CHAR(SLOT_DATE, 'yyyy-mm') AS SLOT_MONTH_YEAR
@@ -119,6 +121,7 @@ access_sched_arived_hour_query <- glue("CREATE TABLE AMBULATORY_SCHED_ARRIVED_HO
 access_sched_arived_hour_index <- glue("CREATE index access_sched_arived_hour_index on AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE (APPT_DATE, DEPARTMENT_ID, CAMPUS)")
 
 
+### Create queries for summing available hours. Make sure to use minimum of available hours when pulling this data in tableau
 availability_without_collapse_drop <- glue("DROP TABLE AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE")
 availability_without_collapse_query<- glue("CREATE TABLE AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE AS
                            SELECT DEPARTMENT_ID, DEPARTMENT_NAME, PROV_NM_WID, PROV_ID,
@@ -136,7 +139,7 @@ availability_without_collapse_query<- glue("CREATE TABLE AMBULATORY_AVAILABILITY
 
 availability_without_collapse_index <- glue("CREATE index availability_without_collapse_index on AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE (SLOT_DATE, DEPARTMENT_ID)")
 
-#table for calculating overbook_mins_v2
+#table for calculating overbook_mins_v2 field in the final slot table
 overbook_raw_without_collapse_drop <- glue("DROP TABLE AMBULATORY_OVERBOOK_WITHOUT_COLLAPSE")
 overbook_raw_without_collapse_query <- glue("CREATE TABLE AMBULATORY_OVERBOOK_WITHOUT_COLLAPSE AS
  SELECT c.DEPARTMENT_ID, c.PROV_ID, c.SLOT_DATE, c.COMBINED_BLOCK_NAME, sum(c.SLOT_LENGTH) AS OVERBOOKED_MINS_V2
@@ -161,7 +164,7 @@ overbook_raw_without_collapse_query <- glue("CREATE TABLE AMBULATORY_OVERBOOK_WI
 overbook_raw_without_collapse_index <- glue("CREATE index overbook_raw_without_collapse_index on AMBULATORY_OVERBOOK_WITHOUT_COLLAPSE (SLOT_DATE, DEPARTMENT_ID)")
 
 
-### Combine all final tables and map the campus column
+### Combine all final tables and map the campus column to create the final slot table
 slot_table_without_collapse_drop <- glue("DROP TABLE AMBULATORY_SLOT_BLOCK_DETAIL_TABLE")
 slot_table_without_collapse_query <- glue("CREATE TABLE AMBULATORY_SLOT_BLOCK_DETAIL_TABLE AS
                             SELECT f.*, g.holiday, 
