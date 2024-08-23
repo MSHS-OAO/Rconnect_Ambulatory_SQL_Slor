@@ -52,10 +52,10 @@ avail_block_grouped_without_collapse_drop <- glue("DROP TABLE AVAILABILITY_BLOCK
 avail_block_grouped_without_collapse_query <- glue("CREATE TABLE AVAILABILITY_BLOCK_GROUPED_WITHOUT_COLLAPSE AS
                                   SELECT DEPARTMENT_ID, DEPARTMENT_NAME, PROV_ID, PROV_NM_WID, SLOT_DATE, COMBINED_BLOCK_NAME, TO_CHAR(SLOT_DATE, 'yyyy-mm') AS SLOT_MONTH_YEAR
                                   FROM AVAILABILITY_BLOCK_COMBINED_WITHOUT_COLLAPSE
-                                  GROUP BY DEPARTMENT_ID, DEPARTMENT_NAME, PROV_ID, PROV_NM_WID, SLOT_DATE, COMBINED_BLOCK_NAME, TO_CHAR(SLOT_DATE, 'yyyy-mm')
+                                  GROUP BY DEPARTMENT_ID, DEPARTMENT_NAME, PROV_ID, PROV_NM_WID, SLOT_DATE, COMBINED_BLOCK_NAME, TO_CHAR(SLOT_DATE, 'yyyy-mm');
                                   ")
 
-avail_block_group_without_collapse_index <- glue("CREATE INDEX avail_block_group_without_collapse_index on AVAILABILITY_BLOCK_GROUPED_WITHOUT_COLLAPSE (SLOT_DATE, DEPARTMENT_ID)")
+avail_block_grouped_without_collapse_index <- glue("CREATE INDEX avail_block_grouped_without_collapse_index on AVAILABILITY_BLOCK_GROUPED_WITHOUT_COLLAPSE (SLOT_DATE, DEPARTMENT_ID)")
 
 
 ### Only return relevant rows from access table and return distinct rows
@@ -97,8 +97,8 @@ raw_access_without_collapse_index <- glue("CREATE index raw_access_without_colla
 
 
 ### Create queries for summing scheduled and arrived hours
-access_sched_arived_hours_drop <- glue("DROP TABLE AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE")
-access_sched_arived_hours_query <- glue("CREATE TABLE AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE AS 
+access_sched_arived_hour_drop <- glue("DROP TABLE AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE")
+access_sched_arived_hour_query <- glue("CREATE TABLE AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE AS 
                            SELECT a.CAMPUS, a.DEPARTMENT_ID, a.DEPARTMENT_NAME, a.PROV_ID, a.PROV_NAME_WID, a.DEPT_SPECIALTY_NAME, 
                            a.APPT_DATE, a.NPI, a.VISIT_PROV_STAFF_RESOURCE_C, a.SCHED_BLOCK_NAME, a.COMBINED_BLOCK_NAME,
                            sum(a.APPT_LENGTH_MINS) AS SCHEDULED_MINS, sum(b.APPT_LENGTH_MINS) AS ARRIVED_MINS
@@ -116,11 +116,11 @@ access_sched_arived_hours_query <- glue("CREATE TABLE AMBULATORY_SCHED_ARRIVED_H
                            ")
 
 
-access_sched_arived_hours_index <- glue("CREATE index access_sched_arived_hours_index on AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE (APPT_DATE, DEPARTMENT_ID, CAMPUS)")
+access_sched_arived_hour_index <- glue("CREATE index access_sched_arived_hour_index on AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE (APPT_DATE, DEPARTMENT_ID, CAMPUS)")
 
 
-availability_raw_drop <- glue("DROP TABLE AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE")
-availability_raw_query<- glue("CREATE TABLE AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE AS
+availability_without_collapse_drop <- glue("DROP TABLE AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE")
+availability_without_collapse_query<- glue("CREATE TABLE AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE AS
                            SELECT DEPARTMENT_ID, DEPARTMENT_NAME, PROV_NM_WID, PROV_ID,
                            SLOT_DATE, TO_CHAR(SLOT_DATE, 'yyyy-mm') AS SLOT_MONTH_YEAR, COMBINED_BLOCK_NAME, 
                            SUM(SLOT_LENGTH) AS AVAILABLE_MINS
@@ -134,14 +134,14 @@ availability_raw_query<- glue("CREATE TABLE AMBULATORY_AVAILABILITY_ACCESS_WITHO
                            GROUP BY DEPARTMENT_ID, DEPARTMENT_NAME, PROV_NM_WID, PROV_ID, SLOT_DATE, SLOT_MONTH_YEAR, COMBINED_BLOCK_NAME;")
 
 
-availability_access_index <- glue("CREATE index availability_access_index on AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE (SLOT_DATE, DEPARTMENT_ID)")
+availability_without_collapse_index <- glue("CREATE index availability_without_collapse_index on AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE (SLOT_DATE, DEPARTMENT_ID)")
 
 #table for calculating overbook_mins_v2
 overbook_raw_without_collapse_drop <- glue("DROP TABLE AMBULATORY_OVERBOOK_WITHOUT_COLLAPSE")
 overbook_raw_without_collapse_query <- glue("CREATE TABLE AMBULATORY_OVERBOOK_WITHOUT_COLLAPSE AS
  SELECT c.DEPARTMENT_ID, c.PROV_ID, c.SLOT_DATE, c.COMBINED_BLOCK_NAME, sum(c.SLOT_LENGTH) AS OVERBOOKED_MINS_V2
                        FROM
-                       (SELECT a.*, b.APPT_NUMBER, b.SLOT_LENGTH, b.COMBINED_BLOCK_NAME
+                       (SELECT a.*, b.APPT_NUMBER, b.SLOT_LENGTH
                          FROM(
                            (SELECT * FROM AMBULATORY_ACCESS_WITHOUT_COLLAPSE
                             WHERE (APPT_STATUS IN ('Arrived', 'No Show','Scheduled')) OR
@@ -172,10 +172,11 @@ slot_table_without_collapse_query <- glue("CREATE TABLE AMBULATORY_SLOT_BLOCK_DE
                               SELECT e.CAMPUS, e.DEPARTMENT_ID, e.DEPARTMENT, e.CAMPUS_SPECIALTY, e.NPI,  
                               e.VISIT_PROV_STAFF_RESOURCE_C, 
                               c.PROV_ID, TRIM(TRAILING FROM REGEXP_REPLACE(PROV_NM_WID, '\\[(.*?)\\]', '')) AS Provider, 
-                              c.SLOT_DATE, c.SLOT_MONTH_YEAR, c.COMBINED_BLOCK_NAME, c.SLOT_DATE - (TO_CHAR(c.SLOT_DATE, 'D') - 1) AS APPT_WEEK, 
+                              c.SLOT_DATE, c.SLOT_MONTH_YEAR, c.COMBINED_BLOCK_NAME, c.SCHED_BLOCK_NAME, 
+                              c.SLOT_DATE - (TO_CHAR(c.SLOT_DATE, 'D') - 1) AS APPT_WEEK, 
                               c.AVAILABLE_MINS, c.SCHEDULED_MINS, c.ARRIVED_MINS, TO_CHAR(c.SLOT_DATE, 'DY') AS APPT_DAY 
                               FROM 
-                               ( SELECT n.* , b.SCHEDULED_MINS, b.ARRIVED_MINS
+                               ( SELECT n.* , b.SCHEDULED_MINS, b.ARRIVED_MINS, b.SCHED_BLOCK_NAME
                                 FROM
                                 (SELECT m.*, a.AVAILABLE_MINS
                                  FROM
@@ -193,7 +194,7 @@ slot_table_without_collapse_query <- glue("CREATE TABLE AMBULATORY_SLOT_BLOCK_DE
                                 (
                                   SELECT * FROM AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE
                                 ) b
-                                ON n.COMBINED_BLOCK_NAME = b.COMBINED_BLOCK_NAME
+                                ON n.COMBINED_BLOCK_NAME = b.SCHED_BLOCK_NAME
                                 AND n.DEPARTMENT_ID = b.DEPARTMENT_ID
                                 AND n.SLOT_DATE = b.APPT_DATE AND n.PROV_ID = b.PROV_ID
                               ) c
@@ -276,7 +277,7 @@ slot_table_without_collapse_index <- glue("CREATE index slot_table_without_colla
 tryCatch({
   poolcon_upt <- dbConnect(drv = odbc(), "OAO Cloud DB Staging", timeout = 30)
   dbBegin(poolcon_upt)
-   if(dbExistsTable(poolcon_upt, "AMBULATORY_SLOT_MAPPING")){
+  if(dbExistsTable(poolcon_upt, "AMBULATORY_SLOT_MAPPING")){
       dbExecute(poolcon_upt, slot_mapping_drop) 
       }
       dbExecute(poolcon_upt, slot_mapping)
@@ -296,21 +297,21 @@ tryCatch({
     dbExecute(poolcon_upt, raw_access_without_collapse_query) 
     dbExecute(poolcon_upt, raw_access_without_collapse_index)
    if(dbExistsTable(poolcon_upt, "AMBULATORY_SCHED_ARRIVED_HOURS_WITHOUT_COLLAPSE")){
-    dbExecute(poolcon_upt, access_sched_arived_hours_drop) 
+    dbExecute(poolcon_upt, access_sched_arived_hour_drop) 
       }
-    dbExecute(poolcon_upt, access_sched_arived_hours_query) 
-    dbExecute(poolcon_upt, access_sched_arived_hours_index)
+    dbExecute(poolcon_upt, access_sched_arived_hour_query) 
+    dbExecute(poolcon_upt, access_sched_arived_hour_index)
    if(dbExistsTable(poolcon_upt, "AMBULATORY_AVAILABILITY_ACCESS_WITHOUT_COLLAPSE")){
-     dbExecute(poolcon_upt, availability_raw_drop) 
+     dbExecute(poolcon_upt, availability_without_collapse_drop) 
    }
-   dbExecute(poolcon_upt, availability_raw_query) 
-   dbExecute(poolcon_upt, availability_raw_index)
+   dbExecute(poolcon_upt, availability_without_collapse_query) 
+   dbExecute(poolcon_upt, availability_without_collapse_index)
    if(dbExistsTable(poolcon_upt, "AMBULATORY_OVERBOOK_WITHOUT_COLLAPSE")){
      dbExecute(poolcon_upt, overbook_raw_without_collapse_drop) 
    }
    dbExecute(poolcon_upt, overbook_raw_without_collapse_query) 
    dbExecute(poolcon_upt, overbook_raw_without_collapse_index)
-   
+ 
    if(dbExistsTable(poolcon_upt, "AMBULATORY_SLOT_BLOCK_DETAIL_TABLE")){
      dbExecute(poolcon_upt, slot_table_without_collapse_drop) 
    }
