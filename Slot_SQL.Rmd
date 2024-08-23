@@ -167,8 +167,8 @@ overbook_raw_index <- glue("CREATE index overbook_raw_index on AMBULATORY_OVERBO
 
 
 ### Combine all final tables and map the campus column
-slot_table_drop_temp <- glue("DROP TABLE AMBULATORY_SLOT_TABLE_TEMP")
-slot_table_quary_temp <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE_TEMP AS
+slot_table_drop_temp <- glue("DROP TABLE AMBULATORY_SLOT_BLOCK_TABLE")
+slot_table_quary_temp <- glue("CREATE TABLE AMBULATORY_SLOT_BLOCK_TABLE AS
                             SELECT f.*, g.holiday, 
                             h.UNAVAILABLE_MINS, i.HELD_MINS, 
                             j.PRIVATE_MINS, k.OVERBOOKED_MINS, l.OVERBOOKED_MINS_V2
@@ -274,7 +274,7 @@ slot_table_quary_temp <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE_TEMP AS
                                AND f.ADJUSTED_BLOCK_NAME = l.ADJUSTED_BLOCK_NAME
                             ")
 
-slot_table_index_temp <- glue("CREATE index slot_table_index_temp on AMBULATORY_SLOT_TABLE_TEMP (SLOT_DATE, DEPARTMENT_ID, CAMPUS)")
+slot_table_index_temp <- glue("CREATE index slot_table_index_temp on AMBULATORY_SLOT_BLOCK_TABLE (SLOT_DATE, DEPARTMENT_ID, CAMPUS)")
 
 
 ## Grouped Table execution
@@ -290,40 +290,39 @@ tryCatch({
   }
   dbExecute(poolcon_upt, avail_block_combined_query) 
   dbExecute(poolcon_upt, avail_block_index)
-#  if(dbExistsTable(poolcon_upt, "AVAILABILITY_BLOCK_GROUPED")){
-#    dbExecute(poolcon_upt, avail_block_grouped_drop) 
-#  }
-#  dbExecute(poolcon_upt, avail_block_grouped_query) 
-#  dbExecute(poolcon_upt, avail_block_group_index)
-#  if(dbExistsTable(poolcon_upt, "AMBULATORY_ACCESS_RAW_FILTERED_TEMP")){
-#    dbExecute(poolcon_upt, raw_access_drop_temp) 
-#  }
-#  dbExecute(poolcon_upt, raw_access_query_temp) 
-#  dbExecute(poolcon_upt, raw_access_index_temp)
-#  if(dbExistsTable(poolcon_upt, "AMBULATORY_ACCESS_SCHED_ARRIVED_HOURS_TEMP")){
-#    dbExecute(poolcon_upt, access_sched_arived_hours_drop_temp) 
-#  }
-#  dbExecute(poolcon_upt, access_sched_arived_hours_quary_temp) 
-#  dbExecute(poolcon_upt, access_sched_arived_hours_index_temp)
-#  if(dbExistsTable(poolcon_upt, "AMBULATORY_AVAILABILITY_ACCESS_TABLE_TEMP")){
-#    dbExecute(poolcon_upt, availability_raw_drop_temp) 
-#  }
-#  dbExecute(poolcon_upt, availability_raw_query_temp) 
-#  dbExecute(poolcon_upt, availability_access_index_temp)
-#  if(dbExistsTable(poolcon_upt, "AMBULATORY_OVERBOOK_TABLE")){
-#    dbExecute(poolcon_upt, overbook_raw_drop) 
-#  }
-#  dbExecute(poolcon_upt, overbook_raw_query) 
-#  dbExecute(poolcon_upt, overbook_raw_index)
-#  
-#  if(dbExistsTable(poolcon_upt, "AMBULATORY_SLOT_TABLE_TEMP")){
-#    dbExecute(poolcon_upt, slot_table_drop_temp) 
-#  }
-#  dbExecute(poolcon_upt, slot_table_quary_temp) 
-#  dbExecute(poolcon_upt, slot_table_index_temp)
+  if(dbExistsTable(poolcon_upt, "AVAILABILITY_BLOCK_GROUPED")){
+    dbExecute(poolcon_upt, avail_block_grouped_drop) 
+  }
+  dbExecute(poolcon_upt, avail_block_grouped_query) 
+  dbExecute(poolcon_upt, avail_block_group_index)
+  if(dbExistsTable(poolcon_upt, "AMBULATORY_ACCESS_RAW_FILTERED_TEMP")){
+    dbExecute(poolcon_upt, raw_access_drop_temp) 
+  }
+  dbExecute(poolcon_upt, raw_access_query_temp) 
+  dbExecute(poolcon_upt, raw_access_index_temp)
+  if(dbExistsTable(poolcon_upt, "AMBULATORY_ACCESS_SCHED_ARRIVED_HOURS_TEMP")){
+    dbExecute(poolcon_upt, access_sched_arived_hours_drop_temp) 
+  }
+  dbExecute(poolcon_upt, access_sched_arived_hours_quary_temp) 
+  dbExecute(poolcon_upt, access_sched_arived_hours_index_temp)
+  if(dbExistsTable(poolcon_upt, "AMBULATORY_AVAILABILITY_ACCESS_TABLE_TEMP")){
+    dbExecute(poolcon_upt, availability_raw_drop_temp) 
+  }
+  dbExecute(poolcon_upt, availability_raw_query_temp) 
+  dbExecute(poolcon_upt, availability_access_index_temp)
+  if(dbExistsTable(poolcon_upt, "AMBULATORY_OVERBOOK_TABLE")){
+    dbExecute(poolcon_upt, overbook_raw_drop) 
+  }
+  dbExecute(poolcon_upt, overbook_raw_query) 
+  dbExecute(poolcon_upt, overbook_raw_index)
   
+  if(dbExistsTable(poolcon_upt, "AMBULATORY_SLOT_BLOCK_TABLE")){
+    dbExecute(poolcon_upt, slot_table_drop_temp) 
+  }
+  dbExecute(poolcon_upt, slot_table_quary_temp) 
+  dbExecute(poolcon_upt, slot_table_index_temp)
   
-  
+
   dbCommit(poolcon_upt)
   dbDisconnect(poolcon_upt)
   print("success")
