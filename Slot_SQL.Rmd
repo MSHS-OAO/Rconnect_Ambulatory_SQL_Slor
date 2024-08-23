@@ -251,6 +251,13 @@ slot_table_quary <- glue("CREATE TABLE AMBULATORY_SLOT_TABLE AS
 
 slot_table_index <- glue("CREATE index slot_table_index on AMBULATORY_SLOT_TABLE (SLOT_DATE, DEPARTMENT_ID, CAMPUS)")
 
+
+### Granting newly created table access to KWEONS01 Schema
+
+grant_access <- glue("GRANT SELECT ON AMBULATORY_SLOT_TABLE to kweons01")
+
+
+
 #poolcon_upt <- dbConnect(odbc(), "OAO Cloud DB Staging", timeout = 15)
 
 
@@ -293,9 +300,10 @@ slot_table_index <- glue("CREATE index slot_table_index on AMBULATORY_SLOT_TABLE
              }
            dbExecute(poolcon_upt, slot_table_quary) 
            dbExecute(poolcon_upt, slot_table_index)
+           
+           dbExecute(poolcon_upt, grant_access)
 
 
-        
         dbCommit(poolcon_upt)
         dbDisconnect(poolcon_upt)
         print("success")
