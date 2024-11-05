@@ -224,6 +224,7 @@ poolcon_upt <- dbConnect(odbc(), "OAO Cloud DB Staging", timeout = 15)
   },
   error = function(err){
     print("error staging")
+    print(err)
     dbRollback(poolcon_upt)
     dbDisconnect(poolcon_upt)
   })
